@@ -1,0 +1,21 @@
+services:
+  sosse:
+    image: biolds/sosse:latest
+    environment:
+      - SOSSE_CRAWLER_COUNT=2
+      - SOSSE_REQUESTS_TIMEOUT=30
+      - SOSSE_JS_STABLE_TIME=0.4
+      - SOSSE_SCREENSHOTS_SIZE=2560x1440
+    volumes:
+      - ./sosse_postgres:/var/lib/postgresql
+      - ./sosse_var:/var/lib/sosse
+    restart: unless-stopped
+    networks:
+      - default      
+      - common-network
+
+networks:
+  common-network:
+    external: true
+
+# default port: 8005
