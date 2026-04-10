@@ -1,0 +1,23 @@
+services:
+  sftpgo:
+    image: drakkan/sftpgo:2.7.x-plugins
+    container_name: home-sftpgo
+    user: "1000:1000"
+    ports:
+      - "2022:2022" # SFTP
+      - "4022:4022" # CalDav
+    volumes:
+      - type: bind
+        source: ./sftpgodata
+        target: /srv/sftpgo
+      - type: bind
+        source: ./sftpgohome
+        target: /var/lib/sftpgo
+    restart: always
+    networks:
+      - default      
+      - common-network
+
+networks:
+  common-network:
+    external: true
