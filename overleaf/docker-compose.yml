@@ -1,0 +1,70 @@
+services:
+  sharelatex:
+    image: sharelatex/sharelatex:6
+    container_name: sharelatex
+    restart: always
+    depends_on:
+      redis:
+        condition: service_started
+      mongo:
+        condition: service_healthy
+    # ports:
+    #   - 80:80
+    environment:
+      OVERLEAF_APP_NAME: Overleaf CE
+      OVERLEAF_MONGO_URL: mongodb://mongo/sharelatex
+      OVERLEAF_REDIS_HOST: redis
+      OVERLEAF_INVITE_TOKEN_SECRET: ${OVERLEAF_INVITE_TOKEN_SECRET}
+      ENABLE_CONVERSIONS: "true"
+      ENABLED_LINKED_FILE_TYPES: project_file,project_output_file
+      EMAIL_CONFIRMATION_DISABLED: "true"
+    stop_grace_period: 60s
+    volumes:
+      - ./data:/var/lib/overleaf
+      - ./logs:/var/log/overleaf
+
+  mongo:
+    image: mongo:8.0.4 # 8.0 causes startup issue on linux kernel. read more: https://www.mongodb.com/docs/v8.0/release-notes/8.0/
+    container_name: mongo
+    command: "--replSet overleaf"
+    restart: always
+    environment:
+        MONGO_INITDB_DATABASE: sharelatex
+    volumes:
+      - ./mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.stats().ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  mongo-init:
+    image: mongo:8.0.4
+    container_name: mongo-init
+    depends_on:
+      mongo:
+        condition: service_healthy
+    command: >
+      mongosh --host mongo:27017 --eval '
+        try {
+          rs.status();
+          print("replica set: already initialized");
+        } catch(e) {
+          print("replica set: initializing...");
+          rs.initiate({
+            _id: "overleaf",
+            members: [{ _id: 0, host: "mongo:27017" }]
+          });
+          print("replica set: initialized successfully");
+        }
+      '
+    restart: "no"
+
+  redis:
+    image: redis:6.2
+    container_name: redis
+    restart: always
+    volumes:
+      - ./redis_data:/data
+    healthcheck:
+      test: redis-cli ping || exit 1
